@@ -1,80 +1,65 @@
-// 1. Make board
+// 1. Gameboard Module
 const gameBoard = (() => {
-  let board = ["", "", "", "", "", "", "", "", ""];
+  let board = Array(9).fill("");
 
   const getBoard = () => board;
-
   const setCell = (index, symbol) => {
     if (board[index] === "") {
       board[index] = symbol;
-      return true; 
+      return true;
     }
     return false;
   };
+  const reset = () => board.fill("");
 
-  const reset = () => {
-    for (let i = 0; i < board.length; i++) {
-      board[i] = "";
-    }
-  };
-
-  // Add a function to print board neatly in console
-  const printBoard = () => {
-    console.log(`
-      ${board[0] || " "} | ${board[1] || " "} | ${board[2] || " "}
-      ---------
-      ${board[3] || " "} | ${board[4] || " "} | ${board[5] || " "}
-      ---------
-      ${board[6] || " "} | ${board[7] || " "} | ${board[8] || " "}
-    `);
-  };
-
-  return { getBoard, setCell, reset, printBoard };
+  return { getBoard, setCell, reset };
 })();
 
-// 2. Player factory
+// 2. Player Factory
 const createPlayer = (name, symbol) => ({ name, symbol });
 
-// 3. Game controller module
+// 3. Game Controller
 const gameController = (() => {
-  const player1 = createPlayer("Player 1", "X");
-  const player2 = createPlayer("Player 2", "O");
-  let currentPlayer = player1;
+  let player1, player2, currentPlayer;
+  let gameOver = false;
+
+  const startGame = (name1, name2) => {
+    player1 = createPlayer(name1 || "Player 1", "X");
+    player2 = createPlayer(name2 || "Player 2", "O");
+    currentPlayer = player1;
+    gameBoard.reset();
+    gameOver = false;
+    return `${currentPlayer.name}'s turn`;
+  };
 
   const playRound = (index) => {
-    const moveMade = gameBoard.setCell(index, currentPlayer.symbol);
-    if (!moveMade) {
-      console.log("Cell already taken, try again.");
-      return;
-    }
+    if (gameOver) return;
 
-    console.log(`${currentPlayer.name} placed ${currentPlayer.symbol} in cell ${index}`);
-    gameBoard.printBoard();
+    const moveMade = gameBoard.setCell(index, currentPlayer.symbol);
+    if (!moveMade) return;
 
     if (checkWinner(currentPlayer.symbol)) {
-      console.log(`${currentPlayer.name} wins!`);
-      return;
+      gameOver = true;
+      return `${currentPlayer.name} wins!`;
     }
 
     if (gameBoard.getBoard().every(cell => cell !== "")) {
-      console.log("It's a draw!");
-      return;
+      gameOver = true;
+      return "It's a draw!";
     }
 
     switchPlayer();
-    console.log(`Next turn: ${currentPlayer.name}`);
+    return `${currentPlayer.name}'s turn`;
   };
 
   const checkWinner = (symbol) => {
     const b = gameBoard.getBoard();
-    const winningCombos = [
-      [0,1,2], [3,4,5], [6,7,8],
-      [0,3,6], [1,4,7], [2,5,8],
-      [0,4,8], [2,4,6]
+    const combos = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
     ];
-    return winningCombos.some(combo =>
-      combo.every(i => b[i] === symbol)
-    );
+    return combos.some(combo => combo.every(i => b[i] === symbol));
   };
 
   const switchPlayer = () => {
@@ -83,29 +68,49 @@ const gameController = (() => {
 
   const getCurrentPlayer = () => currentPlayer;
 
-  const resetGame = () => {
-    gameBoard.reset();
-    currentPlayer = player1;
-    console.log("Game reset!");
-    gameBoard.printBoard();
-  };
+  const resetGame = () => startGame(player1.name, player2.name);
 
-  return { playRound, getCurrentPlayer, resetGame };
+  return { startGame, playRound, getCurrentPlayer, resetGame };
 })();
 
-// 4. Test in the console:
-gameController.resetGame();
-gameController.playRound(0);
-gameController.playRound(1);
-gameController.playRound(4);
-gameController.playRound(2);
-gameController.playRound(8);
+// 4. Display Controller
+const displayController = (() => {
+  const cells = document.querySelectorAll(".cell");
+  const message = document.querySelector(".message");
+  const startButton = document.querySelector(".start");
+  const resetButton = document.querySelector(".reset");
+  const player1Input = document.querySelector("#player1");
+  const player2Input = document.querySelector("#player2");
 
+  const render = () => {
+    const board = gameBoard.getBoard();
+    cells.forEach((cell, i) => {
+      cell.textContent = board[i];
+    });
+  };
 
+  // Cell clicks
+  cells.forEach((cell, i) => {
+    cell.addEventListener("click", () => {
+      const status = gameController.playRound(i);
+      render();
+      if (status) message.textContent = status;
+    });
+  });
 
-// 5. Once it works in the console, make an object for the DOM logic/have a function to render to the webpage 
-// Clean up the interface to allow players to put in their names, include a button to start/restart the game 
-// and add a display element that shows the results upon game end!
-// (Your main goal here is to have as little global code as possible)
+  // Start button
+  startButton.addEventListener("click", () => {
+    const status = gameController.startGame(player1Input.value, player2Input.value);
+    render();
+    message.textContent = status;
+  });
 
+  // Reset button
+  resetButton.addEventListener("click", () => {
+    const status = gameController.resetGame();
+    render();
+    message.textContent = status;
+  });
 
+  return { render };
+})();
